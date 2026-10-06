@@ -1,0 +1,160 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #f5f7fa;
+}
+
+/* Боковая панель */
+.sidebar {
+    width: 400px;
+    background-color: white;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.header {
+    padding: 20px;
+    background-color: #0c5070;
+    color: white;
+}
+
+.header h1 {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.header p {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.search-container {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.search-container input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.search-container button {
+    width: 100%;
+    padding: 12px;
+    background-color: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+
+.search-container button:hover {
+    background-color: #0052a3;
+}
+
+.results-container {
+    padding: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+    display: none; /* Скрыто до первого поиска */
+}
+
+#plotName {
+    margin-bottom: 5px;
+    font-size: 18px;
+}
+
+.location-text {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.badge.critical { background-color: #dc3545; }
+.badge.high { background-color: #fd7e14; }
+
+.result-block {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #0066cc;
+}
+
+.result-block.danger { border-left-color: #dc3545; }
+.result-block.success { border-left-color: #28a745; background: #f0fdf4;}
+
+.result-block h3 { margin-bottom: 8px; font-size: 14px; color: #333; }
+.result-block p, .result-block ul { font-size: 13px; color: #555; line-height: 1.5; }
+.result-block ul { padding-left: 20px; }
+
+/* Контейнер карты */
+#map {
+    flex-grow: 1;
+    height: 100%;
+}
+
+/* Модальное окно (заглушка) */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    width: 450px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.modal h2 { margin-bottom: 15px; color: #1a2b4c; }
+.modal p { margin-bottom: 20px; color: #666; font-size: 14px; line-height: 1.5; }
+.demo-list { text-align: left; background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-family: monospace; font-size: 12px;}
+.modal button {
+    padding: 10px 20px;
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.hint {
+    padding: 0 20px;
+    font-size: 11px;
+    color: #888;
+    margin-top: -10px;
+}

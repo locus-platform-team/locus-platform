@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locus - Анализ земельных рисков</title>
+    
+    <!-- Подключаем стили Leaflet для карты -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Наши стили -->
+    <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+
+    <!-- Боковая панель -->
+    <div class="sidebar">
+        <div class="header">
+            <h1>Locus</h1>
+            <p>Платформа оценки земельных рисков</p>
+        </div>
+
+        <div class="search-container">
+            <input type="text" id="cadastralInput" placeholder="Введите кадастровый номер">
+            <button id="searchButton">Проверить участок</button>
+        </div>
+        
+        <div class="hint">
+            Тестовые номера для прототипа: <br>
+            50:27:0020229:164 | 50:20:0010316:48 <br>
+            50:12:0080112:303 | 50:14:0040312:89
+        </div>
+
+        <!-- Контейнер для результатов -->
+        <div class="results-container" id="resultsPanel">
+            <h2 id="plotName"></h2>
+            <p id="plotLocation" class="location-text"></p>
+            
+            <span id="riskBadge" class="badge"></span>
+
+            <div class="result-block">
+                <h3>Обнаруженные ограничения (ЗОУИТ):</h3>
+                <ul id="plotRegulations"></ul>
+            </div>
+
+            <div class="result-block danger">
+                <h3>Прямой запрет:</h3>
+                <p id="plotForbidden"></p>
+            </div>
+
+            <div class="result-block success">
+                <h3>Алгоритм легализации Locus:</h3>
+                <p id="plotSolution"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Карта -->
+    <div id="map"></div>
+
+    <!-- Всплывающее окно -->
+    <div class="modal-overlay" id="demoModal">
+        <div class="modal">
+            <h2>Участок на стадии анализа</h2>
+            <p>Данный участок на сегодняшний момент момент обрабатывается алгоритмами Locus. В рамках демо-версии функционал доступен только для 4-х подтвержденных кейсов.</p>
+            <div class="demo-list">
+                50:27:0020229:164 (Промзона Эколайф)<br>
+                50:20:0010316:48 (Участок Альянс)<br>
+                50:12:0080112:303 (Пироговское вдхр.)<br>
+                50:14:0040312:89 (Коммерческий склад)
+            </div>
+            <button id="closeModalButton">Понятно</button>
+        </div>
+    </div>
+
+    <!-- Подключаем скрипты Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Наша логика -->
+    <script src="./js/app.js"></script>
+</body>
+</html>
