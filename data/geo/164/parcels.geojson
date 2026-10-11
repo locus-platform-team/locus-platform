@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "uchastock",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "ID": 1, "Name": "Required_164" }, "geometry": { "type": "MultiPolygon", "coordinates": [ [ [ [ 37.339913858227064, 55.42332340567291 ], [ 37.338723953033757, 55.422802132334738 ], [ 37.337554923370156, 55.423477416933316 ], [ 37.338619575385216, 55.424046068691815 ], [ 37.339913858227064, 55.42332340567291 ] ] ] ] } }
+]
+}

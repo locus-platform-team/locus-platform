@@ -1,11 +1,19 @@
 // ===== Настройки =====
-const PATHS = {
-    plots: './data/plots_data.json',
-    parcels: './data/uchastock.geojson',
-    buffers: './data/Bufer.geojson'
-};
+const PLOTS_URL = './data/plots_data.json';
 // Формат кадастрового номера: 50:27:0020229:164
 const CADASTRAL_FORMAT = /^\d{2}:\d{2}:\d{6,7}:\d+$/;
+// Если слой компактнее этого размера (в метрах), камера захватывает его целиком.
+// Большие слои (например, всё водохранилище) в кадр не включаем, иначе карта слишком отдалится.
+const MAX_AUTOFIT_M = 3000;
+
+// Стили слоёв. В plots_data.json у слоя указывается "style": "zone" | "water" | "object"
+const STYLES = {
+    zone:     { path: { color: '#4d86e8', weight: 1, fillColor: '#6fa0f0', fillOpacity: 0.35, interactive: false }, legend: '#6fa0f0' },
+    water:    { path: { color: '#1d3fd1', weight: 1, fillColor: '#2347ec', fillOpacity: 0.9,  interactive: false }, legend: '#2347ec' },
+    object:   { path: { color: '#6a1b9a', weight: 3, fillOpacity: 0, interactive: false },                          legend: '#6a1b9a' },
+    neighbor: { path: { color: '#6b6b00', weight: 1, fillColor: '#e4f21a', fillOpacity: 0.75, interactive: false }, legend: '#e4f21a' },
+    target:   { path: { color: '#8b0000', weight: 2, fillColor: '#e60000', fillOpacity: 0.85 },                     legend: '#e60000' }
+};
 
 // ===== Карта =====
 const map = L.map('map').setView([55.7558, 37.6173], 9);
@@ -16,12 +24,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors | Locus Platform'
 }).addTo(map);
 
-const mapLayers = L.layerGroup().addTo(map); // сюда рисуем участок и зоны
+const mapLayers = L.layerGroup().addTo(map); // сюда рисуем слои текущего участка
 
-// ===== Данные (заполняются после загрузки) =====
-let db = {};          // тексты по кадастровым номерам (plots_data.json)
-let parcels = null;   // границы участков (uchastock.geojson)
-let buffers = null;   // зоны ограничений (Buffer.geojson)
+// ===== Данные =====
+let db = {}; // тексты и описание слоёв по кадастровым номерам (plots_data.json)
 
 // ===== Элементы страницы =====
 const els = {
@@ -29,10 +35,12 @@ const els = {
     button: document.getElementById('searchButton'),
     panel: document.getElementById('resultsPanel'),
     modal: document.getElementById('demoModal'),
-    closeModal: document.getElementById('closeModalButton')
+    closeModal: document.getElementById('closeModalButton'),
+    quickLinks: document.getElementById('quickLinks'),
+    demoList: document.getElementById('demoList')
 };
 
-// ===== Сообщения для пользователя (вместо «тихих» сбоев) =====
+// ===== Сообщения для пользователя =====
 function showStatus(text, isError = false) {
     let el = document.getElementById('statusMessage');
     if (!el) {
@@ -60,48 +68,51 @@ async function loadJson(url) {
     }
 }
 
+// Файлы карты кешируем: повторный поиск того же участка не качает их заново
+const fileCache = new Map();
+function loadCached(url) {
+    if (!fileCache.has(url)) {
+        fileCache.set(url, loadJson(url).catch(err => { fileCache.delete(url); throw err; }));
+    }
+    return fileCache.get(url);
+}
+
 async function loadData() {
     els.button.disabled = true;
     showStatus('Загрузка данных…');
-
-    // Каждый файл грузится независимо: если один не загрузился, остальные всё равно работают
-    const [plotsRes, parcelsRes, buffersRes] = await Promise.allSettled([
-        loadJson(PATHS.plots),
-        loadJson(PATHS.parcels),
-        loadJson(PATHS.buffers)
-    ]);
-
-    const problems = [];
-
-    if (plotsRes.status === 'fulfilled') {
-        db = plotsRes.value;
-    } else {
-        console.error(plotsRes.reason);
-        showStatus('Не удалось загрузить тексты участков (plots_data.json). Откройте консоль (F12), там причина. ' +
+    try {
+        db = await loadJson(PLOTS_URL);
+    } catch (err) {
+        console.error(err);
+        showStatus(`Не удалось загрузить данные участков. ${err.message}. ` +
                    'Если страница открыта двойным кликом, запустите её через Live Server.', true);
-        return; // без текстов работать нечему, кнопка остаётся заблокированной
+        return; // без данных работать нечему, кнопка остаётся заблокированной
     }
-
-    if (parcelsRes.status === 'fulfilled') {
-        parcels = parcelsRes.value;
-    } else {
-        console.error(parcelsRes.reason);
-        problems.push('границы участков (uchastock.geojson)');
-    }
-
-    if (buffersRes.status === 'fulfilled') {
-        buffers = buffersRes.value;
-    } else {
-        console.error(buffersRes.reason);
-        problems.push('зоны ограничений (Buffer.geojson)');
-    }
-
+    renderQuickLinks();
     els.button.disabled = false;
-    if (problems.length) {
-        showStatus(`Не загрузились: ${problems.join(', ')}. Тексты работают, карта без этих слоёв. Подробности в консоли (F12).`, true);
-    } else {
-        showStatus('');
-    }
+    showStatus('');
+}
+
+// ===== Кликабельные номера (строятся из plots_data.json) =====
+function makeQuickButton(cad, withName) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'quick-link';
+    b.textContent = withName ? `${cad} (${db[cad].name})` : cad;
+    b.addEventListener('click', () => {
+        els.input.value = cad;
+        searchPlot();
+    });
+    return b;
+}
+
+function renderQuickLinks() {
+    els.quickLinks.innerHTML = '';
+    els.demoList.innerHTML = '';
+    Object.keys(db).forEach(cad => {
+        els.quickLinks.appendChild(makeQuickButton(cad, false));
+        els.demoList.appendChild(makeQuickButton(cad, true));
+    });
 }
 
 // ===== Проверка, что координаты в градусах (EPSG:4326) =====
@@ -114,7 +125,7 @@ function isLikelyWGS84(bounds) {
 function openModal() { els.modal.style.display = 'flex'; els.panel.style.display = 'none'; }
 function closeModal() { els.modal.style.display = 'none'; }
 
-// ===== Заполнение боковой панели =====
+// ===== Боковая панель =====
 function fillPanel(data) {
     document.getElementById('plotName').textContent = data.name;
     document.getElementById('plotLocation').textContent = data.location;
@@ -133,58 +144,119 @@ function fillPanel(data) {
 
     document.getElementById('plotForbidden').textContent = data.forbidden;
     document.getElementById('plotSolution').textContent = data.solution;
+
+    // Пометка «демо», пока тексты не подтверждены юристами
+    let note = document.getElementById('demoNote');
+    if (!note) {
+        note = document.createElement('div');
+        note.id = 'demoNote';
+        note.style.cssText = 'margin-bottom:12px;padding:8px 10px;background:#fff4e0;border:1px solid #f0d9a8;border-radius:4px;font-size:12px;color:#7a5200;line-height:1.4;';
+        els.panel.prepend(note);
+    }
+    note.textContent = 'Демонстрационные данные: тексты не проверены юристами, границы зон показаны схематично. Не является юридической консультацией.';
+    note.style.display = data.verified_by_lawyers ? 'none' : 'block';
+
     els.panel.style.display = 'block';
 }
 
-// ===== Отрисовка участка и зон на карте =====
-function drawOnMap(cad, data) {
+// ===== Легенда (строится под каждый участок) =====
+let legend = null;
+function setLegend(items) {
+    if (legend) legend.remove();
+    legend = L.control({ position: 'bottomleft' });
+    legend.onAdd = function () {
+        const box = L.DomUtil.create('div');
+        box.style.cssText = 'background:white;padding:8px 10px;border-radius:6px;box-shadow:0 1px 5px rgba(0,0,0,.3);font-size:12px;line-height:1.7;';
+        items.forEach(({ color, label }) => {
+            const row = document.createElement('div');
+            const sw = document.createElement('span');
+            sw.style.cssText = `display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:middle;border:1px solid #888;background:${color};`;
+            row.appendChild(sw);
+            row.appendChild(document.createTextNode(label));
+            box.appendChild(row);
+        });
+        return box;
+    };
+    legend.addTo(map);
+}
+
+// ===== Отрисовка участка и его слоёв =====
+let drawToken = 0; // защита от «гонки», если пользователь быстро кликает по разным участкам
+
+async function drawOnMap(cad, data) {
+    const token = ++drawToken;
     mapLayers.clearLayers();
+    if (legend) { legend.remove(); legend = null; }
 
-    if (!parcels) {
-        showStatus('Границы участков не загрузились, показан только текстовый отчёт.', true);
+    const geo = data.geo;
+    if (!geo || !geo.parcels) {
+        showStatus('Для этого участка пока нет карты. Показан только текстовый отчёт.', true);
         return;
     }
 
-    // Имя участка в GeoJSON берём из plots_data.json (поле geo_name),
-    // а если его нет, ищем по самому кадастровому номеру
-    const geoName = data.geo_name ?? cad;
-    const feature = parcels.features.find(f => String(f.properties?.Name) === geoName);
+    const layerDefs = geo.layers ?? [];
+    const [parcelsRes, ...layerRes] = await Promise.allSettled([
+        loadCached(geo.parcels),
+        ...layerDefs.map(l => loadCached(l.file))
+    ]);
+    if (token !== drawToken) return; // за это время выбрали другой участок
 
-    if (!feature) {
-        showStatus(`Для этого участка пока нет границ в файле (искали Name = «${geoName}»). Показан только текст.`, true);
+    if (parcelsRes.status === 'rejected') {
+        console.error(parcelsRes.reason);
+        showStatus(`Не удалось загрузить границы участка. ${parcelsRes.reason.message}`, true);
+        return;
+    }
+    const parcels = parcelsRes.value;
+
+    const geoName = geo.geo_name ?? cad;
+    const target = parcels.features.find(f => String(f.properties?.Name) === geoName);
+    if (!target) {
+        showStatus(`В файле границ нет участка с Name = «${geoName}». Показан только текст.`, true);
         return;
     }
 
-    const parcelLayer = L.geoJSON(feature, {
-        style: { color: '#0b5ed7', weight: 3, fillOpacity: 0.1 }
-    });
-    const parcelBounds = parcelLayer.getBounds();
-
-    if (!parcelBounds.isValid() || !isLikelyWGS84(parcelBounds)) {
-        console.warn('Подозрительные координаты участка:', parcelBounds);
+    const targetLayer = L.geoJSON(target, { style: STYLES.target.path })
+        .bindTooltip(`Участок ${cad}`, { sticky: true });
+    const targetBounds = targetLayer.getBounds();
+    if (!targetBounds.isValid() || !isLikelyWGS84(targetBounds)) {
+        console.warn('Подозрительные координаты участка:', targetBounds);
         showStatus('Координаты участка выглядят неправильно. Вероятно, файл не в градусах (EPSG:4326). ' +
                    'Попросите ГИС пере-экспортировать GeoJSON в EPSG:4326.', true);
         return;
     }
 
-    const group = L.featureGroup([parcelLayer]);
+    const legendItems = [{ color: STYLES.target.legend, label: 'Наш участок' }];
+    const view = targetBounds.pad(3);
+    const problems = [];
 
-    // Показываем только те зоны, которые пересекаются с областью участка,
-    // а не весь файл Buffer.geojson целиком
-    if (buffers) {
-        const nearBuffers = L.geoJSON(buffers, {
-            filter: f => L.geoJSON(f).getBounds().intersects(parcelBounds),
-            style: { color: 'red', weight: 1, fillOpacity: 0.4 }
-        });
-        if (nearBuffers.getLayers().length) {
-            group.addLayer(nearBuffers);
-        } else {
-            showStatus('Зона ограничений для этого участка в Buffer.geojson не найдена.', true);
+    // Слои рисуются в том порядке, в котором перечислены в plots_data.json (первый снизу)
+    layerDefs.forEach((def, i) => {
+        const res = layerRes[i];
+        if (res.status === 'rejected') {
+            console.error(res.reason);
+            problems.push(res.reason.message);
+            return;
         }
-    }
+        const style = STYLES[def.style] ?? STYLES.zone;
+        const layer = L.geoJSON(res.value, { style: style.path });
+        mapLayers.addLayer(layer);
+        legendItems.push({ color: style.legend, label: def.label });
 
-    mapLayers.addLayer(group);
-    map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        const b = layer.getBounds();
+        if (b.isValid() && b.getNorthEast().distanceTo(b.getSouthWest()) < MAX_AUTOFIT_M) view.extend(b);
+    });
+
+    // Соседние участки (все остальные в файле) и наш участок поверх всего
+    const neighbors = parcels.features.filter(f => f !== target);
+    if (neighbors.length) {
+        mapLayers.addLayer(L.geoJSON({ type: 'FeatureCollection', features: neighbors }, { style: STYLES.neighbor.path }));
+        legendItems.splice(1, 0, { color: STYLES.neighbor.legend, label: 'Существующие участки' });
+    }
+    mapLayers.addLayer(targetLayer);
+
+    setLegend(legendItems);
+    map.fitBounds(view, { maxZoom: 16 });
+    showStatus(problems.length ? `Часть слоёв не загрузилась: ${problems.join(' | ')}` : '', problems.length > 0);
 }
 
 // ===== Поиск =====

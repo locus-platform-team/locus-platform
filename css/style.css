@@ -158,3 +158,38 @@ body {
     color: #888;
     margin-top: -10px;
 }
+/* --- Подсказка и кликабельные номера в боковой панели --- */
+.hint { margin-top: 16px; padding: 0 20px 16px; }
+
+.quick-link {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 10px;
+    text-align: left;
+    background: #eef3f8;
+    color: #1a3d6d;
+    border: 1px solid #cfd8e3;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.quick-link:hover { background: #dde8f5; }
+
+/* --- Окно «участок на анализе» --- */
+.demo-list { display: flex; flex-direction: column; gap: 10px; }
+.demo-list .quick-link {
+    margin: 0;
+    padding: 12px 14px;
+    text-align: center;
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+}
+.demo-list .quick-link:hover { background: #0052a3; }
+#closeModalButton { border-radius: 12px; padding: 10px 24px; }
